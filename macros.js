@@ -37,7 +37,7 @@ var presetLogLists=[
 		['alucin','alua','alub','alucout','aluvout','dasb'],
 		['plaOutputs','DPControl'],
 		['idb','dor'],
-		['irq','nmi',nodenamereset],
+		['irq','nmi',nodenamereset]
 	];
 
 function loadProgram(){
@@ -73,8 +73,14 @@ function go(){
 		}
 	}
 	if(running) {
-           step();
-	   setTimeout(go, 0); // schedule the next poll
+          var t = +new Date;
+          while (+new Date - t < 1000) {
+            step();
+          }
+          if(animateChipLayout)
+            refresh();
+          chipStatus();
+	  setTimeout(go, 0); // schedule the next poll
         }
 }
 
@@ -199,16 +205,15 @@ var goldenChecksum;
 
 // simulate a single clock phase, updating trace and highlighting layout
 function step(){
-	var s=stateString();
-	var m=getMem();
-	trace[cycle]= {chip: s, mem: m};
-	if(goldenChecksum != undefined)
-		traceChecksum=adler32(traceChecksum+s+m.slice(0,511).toString(16));
-	halfStep();
-	if(animateChipLayout)
-		refresh();
-	cycle++;
-	chipStatus();
+/*
+  var s=stateString();
+  var m=getMem();
+  trace[cycle]= {chip: s, mem: m};
+*/
+//  if(goldenChecksum != undefined)
+//    traceChecksum=adler32(traceChecksum+s+m.slice(0,511).toString(16));
+  halfStep();
+  cycle++;
 }
 
 // triggers for breakpoints, watchpoints, input pin events
@@ -447,34 +452,34 @@ function stepBack(){
 }
 
 function chipStatus(){
-	var ab = readAddressBus();
-	var machine1 =
-	        ' halfcyc:' + cycle +
-	        ' phi0:' + readBit('clk0') +
-                ' AB:' + hexWord(ab) +
-	        ' D:' + hexByte(readDataBus()) +
-	        ' RnW:' + readBit('rw');
-	var machine2 =
-	        ' PC:' + hexWord(readPC()) +
-	        ' A:' + hexByte(readA()) +
-	        ' X:' + hexByte(readX()) +
-	        ' Y:' + hexByte(readY()) +
-	        ' SP:' + hexByte(readSP()) +
-	        ' ' + readPstring();
-	var machine3 = 
-		'Hz: ' + estimatedHz().toFixed(1);
-	if(typeof expertMode != "undefined") {
-		machine3 += ' Exec: ' + busToString('Execute') + '(' + busToString('State') + ')';
-		if(isNodeHigh(nodenames['sync']))
-			machine3 += ' (Fetch: ' + busToString('Fetch') + ')';
-		if(goldenChecksum != undefined)
-			machine3 += " Chk:" + traceChecksum + ((traceChecksum==goldenChecksum)?" OK":" no match");
-	}
-	setStatus(machine1, machine2, machine3);
-	if (logThese.length>1) {
-		updateLogbox(logThese);
-	}
-	selectCell(ab);
+  var ab = readAddressBus();
+  var machine1 =
+    ' halfcyc:' + cycle +
+    ' phi0:' + readBit('clk0') +
+    ' AB:' + hexWord(ab) +
+    ' D:' + hexByte(readDataBus()) +
+    ' RnW:' + readBit('rw');
+  var machine2 =
+    ' PC:' + hexWord(readPC()) +
+    ' A:' + hexByte(readA()) +
+    ' X:' + hexByte(readX()) +
+    ' Y:' + hexByte(readY()) +
+    ' SP:' + hexByte(readSP()) +
+    ' ' + readPstring();
+  var machine3 = 
+    'Hz: ' + estimatedHz().toFixed(1);
+  if(typeof expertMode != "undefined") {
+    machine3 += ' Exec: ' + busToString('Execute') + '(' + busToString('State') + ')';
+    if(isNodeHigh(nodenames['sync']))
+      machine3 += ' (Fetch: ' + busToString('Fetch') + ')';
+    if(goldenChecksum != undefined)
+      machine3 += " Chk:" + traceChecksum + ((traceChecksum==goldenChecksum)?" OK":" no match");
+  }
+  setStatus(machine1, machine2, machine3);
+  if (logThese.length>1) {
+    updateLogbox(logThese);
+  }
+  selectCell(ab);
 }
 
 // run for an extended number of cycles, with low overhead, for interactive programs or for benchmarking
@@ -521,8 +526,16 @@ var prevHzEstimate1=1;
 var prevHzEstimate2=1;
 var HzSamplingRate=10;
 
+var lastTime = +new Date;
+var lastCycle = 0;
 // return an averaged speed: called periodically during normal running
 function estimatedHz(){
+  var t = +new Date;
+  var elapsed = t - lastTime;
+  lastTime = t;
+  var cycles = cycle - lastCycle;
+  lastCycle = cycle;
+  return cycles / (elapsed / 1000);
 	if(cycle%HzSamplingRate!=3)
 		return prevHzEstimate1;
 	var HzTimeStamp = now();

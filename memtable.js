@@ -59,28 +59,29 @@ function cellKeydown(e){
 }
 
 function setCellValue(n, val){
-	if(val==undefined)
-		val=0x00;
-	val%=256;
-	cellEl(n).val=val;
-	cellEl(n).innerHTML=hexByte(val);
+  if(val==undefined)
+    val=0x00;
+  val%=256;
+  cellEl(n).val=val;
+  cellEl(n).innerHTML=hexByte(val);
 }
 
 function getCellValue(n){return cellEl(n).val;}
 
 function selectCell(n){
-	unselectCell();
-	if(n>=0x200) return;
-	cellEl(n).style.background = '#ff8';
-	selected = n;
-	table.onkeydown = function(e){cellKeydown(e);};
+  if (selected != undefined)
+    unselectCell();
+  if(n>=0x200) return;
+  cellEl(n).style.background = '#ff8';
+  selected = n;
+  table.onkeydown = cellKeydown;
 }
 
 function unselectCell(){
-	if(selected==undefined) return;
-	cellEl(selected).style.background = '#fff';
-	selected = undefined;
-	window.onkeydown = undefined;
+  if(selected==undefined) return;
+  cellEl(selected).style.background = '#fff';
+  selected = undefined;
+  window.onkeydown = undefined;
 }
 
 function cellEl(n){

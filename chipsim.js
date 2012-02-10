@@ -24,108 +24,131 @@ var ctrace = false;
 var traceTheseNodes = [];
 var traceTheseTransistors = [];
 var loglevel = 0;
-var recalclist = new Array();
-var recalcHash = new Array();
+var ulist = new Uint16Array(2000);
+var ulistLength = 0;
+var recalcList = new Uint16Array(2000);
+var recalcHash = new Uint8Array(2000);
+var emptyArray = new Uint8Array(2000);
+var recalcListLength = 0;
 var group = new Array();
 
+
 function recalcNodeList(list){
-	var n = list[0];
-	recalclist = new Array();
-	recalcHash = new Array();
-	for(var j=0;j<100;j++){		// loop limiter
-		if(list.length==0) return;
-		if(ctrace) {
-			var i;
-			for(i=0;i<traceTheseNodes.length;i++) {
-				if(list.indexOf(traceTheseNodes[i])!=-1) break;
-			}
-			if((traceTheseNodes.length==0)||(list.indexOf(traceTheseNodes[i])==-1)) {
-				console.log('recalcNodeList iteration: ', j, list.length, 'nodes');
-			} else {
-				console.log('recalcNodeList iteration: ', j, list.length, 'nodes', list);
-			}
-		}
-		list.forEach(recalcNode);
-		list = recalclist;
-		recalclist = new Array();
-		recalcHash = new Array();
-	}
-	if(ctrace) console.log(n,'looping...');
+  var n = list[0];
+  recalcHash.set(emptyArray);
+  recalcListLength = 0;
+  for (ulistLength=0; ulistLength<list.length; ulistLength++) {
+    ulist[ulistLength] = list[ulistLength];
+  }
+  for(var j=0;j<100;j++){		// loop limiter
+    if(ulistLength==0) return;
+    if(ctrace) {
+      var i;
+      for(i=0;i<traceTheseNodes.length;i++) {
+	if(list.indexOf(traceTheseNodes[i])!=-1) break;
+      }
+      if((traceTheseNodes.length==0)||(list.indexOf(traceTheseNodes[i])==-1)) {
+	console.log('recalcNodeList iteration: ', j, list.length, 'nodes');
+      } else {
+	console.log('recalcNodeList iteration: ', j, list.length, 'nodes', list);
+      }
+    }
+    for (var k=0; k<ulistLength; k++) {
+      recalcListLength = recalcNode(recalcList, recalcListLength, recalcHash, ulist[k]);
+    }
+    for (ulistLength=0; ulistLength<recalcListLength; ulistLength++) {
+      ulist[ulistLength] = recalcList[ulistLength];
+    }
+    recalcListLength = 0;
+    recalcHash.set(emptyArray);
+  }
+  if(ctrace) console.log(n,'looping...');
 }
 
-function recalcNode(node){
-	if(node==ngnd) return;
-	if(node==npwr) return;
-	getNodeGroup(node);
-	var newState = getNodeValue();
-	if(ctrace && (traceTheseNodes.indexOf(node)!=-1))
-		console.log('recalc', node, group);
-	group.forEach(function(i){
-		var n = nodes[i];
-		if(n.state==newState) return;
-		n.state = newState;
-		n.gates.forEach(function(t){
-			if(n.state) turnTransistorOn(t);
-			else turnTransistorOff(t);});
-	});
+function recalcNode(rl, rll, rh, node){
+  if(node==ngnd) return rll;
+  if(node==npwr) return rll;
+  var group = getNodeGroup(node);
+  var newState = getNodeValue(group);
+  if(ctrace && (traceTheseNodes.indexOf(node)!=-1))
+    console.log('recalc', node, group);
+  var j=0,k=0;
+  for (j=0; j<group.length; j++) {
+    var n = nodes[group[j]];
+    if(n.state==newState) continue;
+    n.state = newState;
+    if (n.state) {
+      for (k=0; k<n.gates.length; k++)
+        rll = turnTransistorOn(rl, rll, rh, n.gates[k]);
+    } else {
+      for (k=0; k<n.gates.length; k++)
+        rll = turnTransistorOff(rl, rll, rh, n.gates[k]);
+    }
+  }
+  return rll;
 }
 
-function turnTransistorOn(t){
-	if(t.on) return;
-	if(ctrace && (traceTheseTransistors.indexOf(t.name)!=-1))
-		console.log(t.name, 'on', t.gate, t.c1, t.c2);
-	t.on = true;
-	addRecalcNode(t.c1);
+function turnTransistorOn(rl, rll, rh, t){
+  if(t.on) return rll;
+  if(ctrace && (traceTheseTransistors.indexOf(t.name)!=-1))
+    console.log(t.name, 'on', t.gate, t.c1, t.c2);
+  t.on = true;
+  rll = addRecalcNode(rl, rll, rh, t.c1);
+  return rll;
 }
 
-function turnTransistorOff(t){
-	if(!t.on) return;
-	if(ctrace && (traceTheseTransistors.indexOf(t.name)!=-1))
-		console.log(t.name, 'off', t.gate, t.c1, t.c2);
-	t.on = false;
-	addRecalcNode(t.c1);
-	addRecalcNode(t.c2);
+function turnTransistorOff(rl, rll, rh, t){
+  if(!t.on) return rll;
+  if(ctrace && (traceTheseTransistors.indexOf(t.name)!=-1))
+    console.log(t.name, 'off', t.gate, t.c1, t.c2);
+  t.on = false;
+  rll = addRecalcNode(rl, rll, rh, t.c1);
+  rll = addRecalcNode(rl, rll, rh, t.c2);
+  return rll;
 }
 
-function addRecalcNode(nn){
-       if(nn==ngnd) return;
-       if(nn==npwr) return;
-       if(recalcHash[nn] == 1)return; 
-       recalclist.push(nn);
-       recalcHash[nn] = 1;
+function addRecalcNode(rl, rll, rh, nn){
+  if(nn==ngnd) return rll;
+  if(nn==npwr) return rll;
+  if(rh[nn] == 1) return rll; 
+  rl[rll] = nn;
+  rh[nn] = 1;
+  return rll+1;
 }
 
 function getNodeGroup(i){
-	group = new Array();
-	addNodeToGroup(i);
+  var group = new Array();
+  addNodeToGroup(group, i);
+  return group;
 }
 
-function addNodeToGroup(i){
-	if(group.indexOf(i) != -1) return;
-	group.push(i);
-	if(i==ngnd) return;
-	if(i==npwr) return;
-	nodes[i].c1c2s.forEach(
-		function(t){
-			if(!t.on) return;
-			var other;
-			if(t.c1==i) other=t.c2;
-			if(t.c2==i) other=t.c1;
-			addNodeToGroup(other);});
+function addNodeToGroup(group, i){
+  if(group.indexOf(i) != -1) return;
+  group.push(i);
+  if(i==ngnd) return;
+  if(i==npwr) return;
+  var c = nodes[i].c1c2s;
+  for (var j=0; j<c.length; j++) {
+    var t = c[j];
+    if(!t.on) continue;
+    var other = t.c1;
+    if(t.c1==i) other=t.c2;
+    addNodeToGroup(group, other);
+  }
 }
 
 
-function getNodeValue(){
-	if(arrayContains(group, ngnd)) return false;
-	if(arrayContains(group, npwr)) return true;
-	for(var i in group){
-		var nn = group[i];
-		var n = nodes[nn];
-		if(n.pullup) return true;
-		if(n.pulldown) return false;
-		if(n.state) return true;
-	}
-	return false;
+function getNodeValue(group){
+  if(group.indexOf(ngnd) != -1) return false;
+  if(group.indexOf(npwr) != -1) return true;
+  for(var i=0; i<group.length; i++){
+    var nn = group[i];
+    var n = nodes[nn];
+    if(n.pullup) return true;
+    if(n.pulldown) return false;
+    if(n.state) return true;
+  }
+  return false;
 }
 
 
@@ -148,49 +171,48 @@ function allNodes(){
 }
 
 function stateString(){
-	var codes = ['l','h'];
-	var res = '';
-	for(var i=0;i<1725;i++){
-		var n = nodes[i];
-		if(n==undefined) res+='x';
-		else if(i==ngnd) res+='g';
-		else if(i==npwr) res+='v';
-		else res+= codes[0+n.state];
-	}
-	return res;
+  var res = '';
+  for(var i=0;i<1725;i++){
+    var n = nodes[i];
+    if(n==undefined) res+='x';
+    else if(i==ngnd) res+='g';
+    else if(i==npwr) res+='v';
+    else if(n.state==0) res+='l';
+    else res+='h';
+  }
+  return res;
 }
 
 function showState(str){
-	var codes = {g: false, h: true, v: true, l: false};
-	for(var i=0;i<str.length;i++){
-		if(str[i]=='x') continue;
-		var state = codes[str[i]];
-		nodes[i].state = state;
-		var gates = nodes[i].gates;
-		gates.forEach(function(t){t.on=state;});
-	}
-	refresh();
+  var codes = {g: false, h: true, v: true, l: false};
+  for(var i=0;i<str.length;i++){
+    if(str[i]=='x') continue;
+    var state = codes[str[i]];
+    nodes[i].state = state;
+    var gates = nodes[i].gates;
+    gates.forEach(function(t){t.on=state;});
+  }
+  refresh();
 }
 
 
 function setPd(name){
-	var nn = nodenames[name];
-	nodes[nn].pullup = false;
-	nodes[nn].pulldown = true;
+  var nn = nodenames[name];
+  nodes[nn].pullup = false;
+  nodes[nn].pulldown = true;
 }
 
 function setHigh(name){
-	var nn = nodenames[name];
-	nodes[nn].pullup = true;
-	nodes[nn].pulldown = false;
-	recalcNodeList([nn]);
+  var nn = nodenames[name];
+  nodes[nn].pullup = true;
+  nodes[nn].pulldown = false;
+  recalcNodeList([nn]);
 }
 
 function setLow(name){
-	var nn = nodenames[name];
-	nodes[nn].pullup = false;
-	nodes[nn].pulldown = true;
-	recalcNodeList([nn]);
+  var nn = nodenames[name];
+  nodes[nn].pullup = false;
+  nodes[nn].pulldown = true;
+  recalcNodeList([nn]);
 }
 
-function arrayContains(arr, el){return arr.indexOf(el)!=-1;}
