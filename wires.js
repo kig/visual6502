@@ -21,14 +21,14 @@
 */
 
 var frame, chipbg, overlay, hilite, hitbuffer, ctx;
-var nodes = new Array();
+var nodes = new Array(1725);
 var transistors = {};
 var nodenamelist=[];
 
 var ngnd = nodenames['vss'];
 var npwr = nodenames['vcc'];
 
-var chipLayoutIsVisible = true;  // only modified in expert mode
+var chipLayoutIsVisible = false;  // only modified in expert mode
 var hilited = [];
 
 function setupNodes(){

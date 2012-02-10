@@ -171,15 +171,14 @@ function allNodes(){
 }
 
 function stateString(){
-  var res = '';
+  var res = new Uint8Array(1725);
   for(var i=0;i<1725;i++){
     var n = nodes[i];
-    if(n==undefined) res+='x';
-    else if(i==ngnd) res+='g';
-    else if(i==npwr) res+='v';
-    else if(n.state==0) res+='l';
-    else res+='h';
+    if (n == undefined) res[i] = 120; // 'x'
+    else res[i] = n.state ? 104 : 108; // ? 'h' : 'l'
   }
+  res[ngnd] = 103; // 'g'
+  res[npwr] = 118; // 'v'
   return res;
 }
 

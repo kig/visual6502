@@ -20,10 +20,10 @@
  THE SOFTWARE.
 */
 
-var memory = Array();
+var memory = new Uint8Array(0x200);
 var cycle = 0;
-var trace = Array();
-var logstream = Array();
+var trace = [];
+var logstream = [];
 var running = false;
 var logThese=[];
 var chipname='6502';
@@ -165,7 +165,7 @@ function initChip(){
 	for(var i=0;i<18;i++){halfStep();} // avoid updating graphics and trace buffer before user code
 	refresh();
 	cycle = 0;
-	trace = Array();
+	trace = [];
 	if(typeof expertMode != "undefined")
 		updateLogList();
 	chipStatus();
@@ -205,13 +205,15 @@ var goldenChecksum;
 
 // simulate a single clock phase, updating trace and highlighting layout
 function step(){
-/*
+
   var s=stateString();
   var m=getMem();
-  trace[cycle]= {chip: s, mem: m};
-*/
-//  if(goldenChecksum != undefined)
-//    traceChecksum=adler32(traceChecksum+s+m.slice(0,511).toString(16));
+  trace[cycle] = {chip: s, mem: m};
+  if(goldenChecksum != undefined) {
+    // this looks slow when enabled
+    traceChecksum=adler32(traceChecksum+s+m.slice(0,511).toString(16));
+  }
+
   halfStep();
   cycle++;
 }
@@ -380,7 +382,7 @@ function busToHex(busname){
 }
 
 function writeDataBus(x){
-	var recalcs = Array();
+	var recalcs = [];
 	for(var i=0;i<8;i++){
 		var nn = nodenames['db'+i];
 		var n = nodes[nn];
@@ -393,14 +395,13 @@ function writeDataBus(x){
 }
 
 function mRead(a){
-	if(memory[a]==undefined) return 0;
-	else return memory[a];
+  return memory[a];
 }
 
 function mWrite(a, d){memory[a]=d;}
 
 function clkNodes(){
-	var res = Array();
+	var res = [];
 	res.push(943);
 	for(var i in nodes[943].gates){
 		var t = nodes[943].gates[i];
@@ -617,13 +618,14 @@ function updateLogbox(names){
 }
 
 function getMem(){
-	var res = Array();
-	for(var i=0;i<0x200;i++) res.push(mRead(i));
-	return res;
+  var res = new Uint8Array(0x200);
+  for(var i=0;i<0x200;i++)
+    res[i] = mRead(i);
+  return res;
 }
 
 function setMem(arr){
-	for(var i=0;i<0x200;i++){mWrite(i, arr[i]); setCellValue(i, arr[i]);}
+  for(var i=0;i<0x200;i++){mWrite(i, arr[i]); setCellValue(i, arr[i]);}
 }
 
 function hexWord(n){return (0x10000+n).toString(16).substring(1)}
