@@ -28,7 +28,7 @@ var nodenamelist=[];
 var ngnd = nodenames['vss'];
 var npwr = nodenames['vcc'];
 
-var chipLayoutIsVisible = false;  // only modified in expert mode
+var chipLayoutIsVisible = true;  // only modified in expert mode
 var hilited = [];
 
 function setupNodes(){
